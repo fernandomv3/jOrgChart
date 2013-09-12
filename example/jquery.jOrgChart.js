@@ -16,7 +16,6 @@
   $.fn.jOrgChart = function(options) {
     var opts = $.extend({}, $.fn.jOrgChart.defaults, options);
     var $appendTo = $(opts.chartElement);
-
     // build the tree
     $this = $(this);
     var $container = $("<div class='" + opts.chartClass + "'/>");
@@ -45,9 +44,23 @@
         $('div.node').droppable({
             accept      : '.node',          
             activeClass : 'drag-active',
-            hoverClass  : 'drop-hover'
+            hoverClass  : 'drop-hover',
+            over: function (event, ui){
+              console.log("over!");
+              $("div.jOrgChart").droppable("disable");
+            },
+            out: function HandleNodeOut(event, ui){
+              console.log("out!");
+              $("div.jOrgChart").droppable("enable");
+            }
         });
         
+        $('div.jOrgChart').droppable({
+            accept      : '.node',          
+            activeClass : 'drag-active',
+            hoverClass  : 'drop-hover'
+        });
+
       // Drag start event handler for nodes
       $('div.node').bind("dragstart", function handleDragStart( event, ui ){
         
@@ -60,37 +73,50 @@
 
       // Drag stop event handler for nodes
       $('div.node').bind("dragstop", function handleDragStop( event, ui ){
-
         /* reload the plugin */
         $(opts.chartElement).children().remove();
         $this.jOrgChart(opts);      
       });
+
+      $("div.jOrgChart").bind("drop",function handleDropOutsideEvent(event,ui){
+        //get the element being dropped 
+        var sourceID = ui.draggable.data("tree-node");    
+        var sourceLi = $this.find("li").filter(function() { return $(this).data("tree-node") === sourceID; } );   
+        var sourceUl = sourceLi.parent('ul');
+        //ask for confirmation of deletion
+        if(confirm("You are about to delete this work package, this action cannot be undone. Are you sure you want to continue?")){
+          sourceLi.remove(); 
+          if (sourceUl.children().length === 0){//if parent of the dropped object has 0 childs, delete the list
+            sourceUl.remove();
+          }
+        }
+      });
     
       // Drop event handler for nodes
       $('div.node').bind("drop", function handleDropEvent( event, ui ) {    
-	  
-        var targetID = $(this).data("tree-node");
+        //target : node that receives the object
+        var targetID = $(this).data("tree-node"); 
         var targetLi = $this.find("li").filter(function() { return $(this).data("tree-node") === targetID; } );
         var targetUl = targetLi.children('ul');
-		
-        var sourceID = ui.draggable.data("tree-node");		
-        var sourceLi = $this.find("li").filter(function() { return $(this).data("tree-node") === sourceID; } );		
+        //source : node that is being dropped 
+        var sourceID = ui.draggable.data("tree-node");    
+        var sourceLi = $this.find("li").filter(function() { return $(this).data("tree-node") === sourceID; } );   
         var sourceUl = sourceLi.parent('ul');
 
-        if (targetUl.length > 0){
-  		    targetUl.append(sourceLi);
-        } else {
-  		    targetLi.append("<ul></ul>");
-  		    targetLi.children('ul').append(sourceLi);
+        if (targetUl.length > 0){//if target node has children append source.
+          targetUl.append(sourceLi);
+        } else {//if target node doesn't have children append a new UL and append source to that list
+          targetLi.append("<ul></ul>");
+          targetLi.children('ul').append(sourceLi);
         }
         
         //Removes any empty lists
-        if (sourceUl.children().length === 0){
+        if (sourceUl.children().length === 0){//if parent of the dropped object has 0 childs, delete the list
           sourceUl.remove();
         }
-		
+    
       }); // handleDropEvent
-        
+
     } // Drag and drop
   };
 
@@ -101,7 +127,7 @@
     chartClass : "jOrgChart",
     dragAndDrop: false
   };
-	
+  
   var nodeCount = 0;
   // Method that recursively builds the tree
   function buildNode($node, $appendTo, level, opts) {
@@ -115,7 +141,8 @@
     var $nodeDiv;
     
     if($childNodes.length > 1) {
-      $nodeCell.attr("colspan", $childNodes.length * 2);
+      //$nodeCell.attr("colspan", $childNodes.length * 2);
+      $nodeCell.innerWidth($childNodes.length * 2);
     }
     // Draw the node
     // Get the contents - any markup except li and ul allowed
@@ -124,11 +151,11 @@
                             .remove()
                             .end()
                             .html();
-	
+  
       //Increaments the node count which is used to link the source list and the org chart
-  	nodeCount++;
-  	$node.data("tree-node", nodeCount);
-  	$nodeDiv = $("<div>").addClass("node")
+    nodeCount++;
+    $node.data("tree-node", nodeCount);
+    $nodeDiv = $("<div>").addClass("node")
                                      .data("tree-node", nodeCount)
                                      .append($nodeContent);
 
